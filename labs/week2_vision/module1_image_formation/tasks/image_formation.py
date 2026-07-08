@@ -27,6 +27,18 @@ def project_perspective(point_cam, f):
     #### START PUT CODE HERE #########
     x = 0.0
     y = 0.0
+
+    # Things shrink with distance. A point at camera-frame position (X, Y, Z) lands on the sensor at x = f·X/Z, y = f·Y/Z. The /Z is the whole reason perspective works: double the distance, halve the apparent size. f, the focal length, is how far the sensor sits behind the pinhole — a longer f zooms in.
+
+    # Sensor meters become pixels. The projection gives a position in meters on the sensor, but a pixel grid needs integers. Divide by the physical width of one pixel and shift by the principal point (cx, cy) — the pixel where the optical axis hits the sensor — to get (u, v). Bundling focal length and principal point into a 3×3 matrix gives the intrinsic matrix K, so a single K @ point does the camera → pixel step.
+
+    # World points need the camera's pose. A point given in world coordinates must first be expressed in the camera's frame: rotate and translate it by the pose (R, t) (p_cam = R·p_world + t), then apply K. The result is homogeneous, so you divide by the third coordinate at the end to land on the pixel.
+
+    # Real lenses aren't perfect pinholes. They bend straight lines outward or inward near the edges (radial distortion), which the k1, k2 coefficients model as a stretch that grows with distance from the image center. Robotics code usually undistorts an image before measuring anything in it.
+
+    x = f * X / Z
+    y = f * Y / Z
+
     ###### END PUT CODE HERE #########
     ##################################
     return (x, y)
@@ -45,6 +57,10 @@ def meters_to_pixels(x, y, pixel_size, principal_point):
     #### START PUT CODE HERE #########
     u = 0.0
     v = 0.0
+
+    u = x / pixel_size + cx
+    v = y / pixel_size + cy
+
     ###### END PUT CODE HERE #########
     ##################################
     return (u, v)
@@ -58,6 +74,13 @@ def intrinsic_matrix(fx, fy, cx, cy):
     ##################################
     #### START PUT CODE HERE #########
     K = np.eye(3)
+
+    K[0, 0] = fx
+    K[1, 1] = fy
+    K[0, 2] = cx
+    K[1, 2] = cy
+    K[2, 2] = 1.0
+
     ###### END PUT CODE HERE #########
     ##################################
     return K
@@ -75,6 +98,15 @@ def project_world_point(K, R, t, point_world):
     #### START PUT CODE HERE #########
     u = 0.0
     v = 0.0
+
+    # World points need the camera's pose. A point given in world coordinates must first be expressed in the camera's frame: rotate and translate it by the pose (R, t) (p_cam = R·p_world + t), then apply K. The result is homogeneous, so you divide by the third coordinate at the end to land on the pixel.
+
+    p_cam = R @ point_world + t
+    img = K @ p_cam
+    u = img[0] / img[2]
+    v = img[1] / img[2]
+
+
     ###### END PUT CODE HERE #########
     ##################################
     return (u, v)
@@ -90,6 +122,10 @@ def apply_radial_distortion(x, y, k1, k2):
     ##################################
     #### START PUT CODE HERE #########
     factor = 1.0
+
+    r2 = x**2 + y**2
+    factor = 1 + k1 * r2 + k2 * r2**2
+    
     ###### END PUT CODE HERE #########
     ##################################
     return (x * factor, y * factor)
