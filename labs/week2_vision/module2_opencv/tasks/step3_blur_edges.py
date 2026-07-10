@@ -50,6 +50,27 @@ def update(drone):
     # brightness changes and combine the two directions into one edge magnitude. Print the
     # mean magnitude. Advance _timer and finish at HOVER_TIME. See the README (Key terms).
 
+    img = drone.camera.get_downward_image()
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    blur = cv2.blur(gray, (KERNEL_SIZE, KERNEL_SIZE))
+
+    # Sobel filter across and down
+    sobel_x = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=KERNEL_SIZE)
+    sobel_y = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=KERNEL_SIZE) 
+
+    # "The second argument cv2.CV_64F tells OpenCV to use 64-bit floats for the output. This matters because gradients can be negative, meaning intensity is decreasing, and if you use an unsigned 8-bit integer those negative values get clipped to zero and you lose half your edges. Computing in float and converting afterward keeps everything intact."
+
+    # Combine two directions into 1 edge magnitude
+    sobel = cv2.magnitude(sobel_x, sobel_y)
+    sobel = np.uint8(np.clip(sobel, 0, 255))
+    mean = np.mean(sobel)
+
+    print(f'Sobel mean magnitude: {mean}')
+
+    _timer += drone.get_delta_time()
+    if _timer >= HOVER_TIME:
+        _done = True
+
     ###### END PUT CODE HERE #########
     ##################################
     return _done

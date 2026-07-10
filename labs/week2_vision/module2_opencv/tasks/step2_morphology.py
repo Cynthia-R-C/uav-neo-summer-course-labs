@@ -22,7 +22,7 @@ if _d not in _sys.path:
 import neo_lab
 
 # -- Constants --------------------------------------------------------------
-THRESHOLD_VALUE = 127
+THRESHOLD_VALUE = 100   # orign 127
 KERNEL_SIZE     = 5
 HOVER_TIME      = 3.0
 
@@ -48,6 +48,25 @@ def update(drone):
     # binary mask like Step 1, then open it with a KERNEL_SIZE square kernel and compare
     # the white-pixel count before and after to see what was removed. Advance _timer and
     # finish once it reaches HOVER_TIME. See the README (Key terms) for morphology.
+
+    img = drone.camera.get_downward_image()
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    _, mask = cv2.threshold(gray, THRESHOLD_VALUE, 255, cv2.THRESH_BINARY)
+
+    white1 = cv2.countNonZero(mask)
+    print(f"White pixels pre-opening: {white1}")
+
+    kernel = np.ones((KERNEL_SIZE,KERNEL_SIZE),np.uint8)
+    opening = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+
+    white2 = cv2.countNonZero(opening)
+    print(f"White pixels post-opening: {white2}")
+
+    _timer += drone.get_delta_time()
+
+    if _timer == HOVER_TIME:
+        _done = True
+
 
     ###### END PUT CODE HERE #########
     ##################################
