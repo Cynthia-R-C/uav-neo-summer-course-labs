@@ -59,6 +59,25 @@ def update(drone):
     # hold position rather than steering on noise -- but keep the timer running every
     # frame and finish after FOLLOW_TIME regardless, so losing the edge never hangs.
 
+    img = drone.camera.get_downward_image()
+    mask = neo_lab.bright_mask(img, V_MIN)
+    points = np.argwhere(mask)
+
+    # do same as in step 2 except for flight
+    if len(points) < MIN_PIXELS:
+        drone.flight.stop()  # keep timer running
+    else:
+        # Find mean column
+        mean = points[:,1].mean()   # avg x
+        delta = (mean - IMAGE_CENTER) / IMAGE_CENTER  # normalize for [-1,1]
+        drone.flight.send_pcmd(FORWARD_PITCH, uav_utils.clamp(delta, 0, MAX_ROLL), 0, 0)
+
+    _timer += drone.get_delta_time()
+    if _timer >= FOLLOW_TIME:
+        drone.flight.stop()
+        _done = True
+        print("Step 3 done")
+
     ###### END PUT CODE HERE #########
     ##################################
     return _done
