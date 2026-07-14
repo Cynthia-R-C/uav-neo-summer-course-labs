@@ -22,9 +22,9 @@ if _d not in _sys.path:
 import neo_lab
 
 # -- Constants --------------------------------------------------------------
-LOWER = neo_lab.CYAN_LOWER
-UPPER = neo_lab.CYAN_UPPER
-MIN_AREA = 400
+LOWER = neo_lab.GREEN_LOWER
+UPPER = neo_lab.GREEN_UPPER
+MIN_AREA = 100
 HOVER_TIME = 3.0
 
 # -- Module-level state -----------------------------------------------------
@@ -49,6 +49,21 @@ def update(drone):
     # image, MIN_AREA), which keeps only square-ish (gate-shaped) contours; it returns None
     # when there is no gate -> return False. Otherwise find the contour's bounding box and
     # print it. Advance _timer and finish at HOVER_TIME.
+
+    img = drone.camera.get_color_image()
+    # mask = cv2.inRange(img, LOWER, UPPER)
+    # h, s, v = cv2.split(mask)
+    # print(f"HSV ranges: H({np.min(h)}, {np.max(h)}), S({np.min(s)}, {np.max(s)}), V({np.min(v)}, {np.max(v)})")
+    largest_gate = neo_lab.largest_cyan_gate(img, MIN_AREA)
+    if largest_gate is None:
+        print("No gate found")
+        return False
+    
+    x, y, w, h = cv2.boundingRect(largest_gate)
+    _timer += drone.get_delta_time()
+    if _timer >= HOVER_TIME:
+        print(f"Bounding box: x={x}, y={y}, w={w}, h={h}")
+        _done = True
 
     ###### END PUT CODE HERE #########
     ##################################

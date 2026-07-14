@@ -23,8 +23,8 @@ if _d not in _sys.path:
 import neo_lab
 
 # -- Constants --------------------------------------------------------------
-LOWER = neo_lab.CYAN_LOWER    # [80, 40, 150]
-UPPER = neo_lab.CYAN_UPPER    # [105, 255, 255]
+LOWER = neo_lab.GREEN_LOWER    # [80, 40, 150]
+UPPER = neo_lab.GREEN_UPPER    # [105, 255, 255]
 HOVER_TIME = 3.0
 
 # -- Module-level state -----------------------------------------------------
@@ -49,6 +49,19 @@ def update(drone):
     # the gates: convert the forward color image to HSV and build a mask from that range.
     # Report the fraction of masked pixels. Advance _timer and finish at HOVER_TIME.
     # See the README (Key terms) for HSV masking.
+
+    img = drone.camera.get_color_image()
+    mask = cv2.inRange(img, LOWER, UPPER)
+
+    total_pixels = mask.size
+    masked_pixels = cv2.countNonZero(mask)
+    fraction_masked = masked_pixels / total_pixels
+
+    _timer += drone.get_delta_time()
+    if _timer >= HOVER_TIME:
+        print(f"Fraction of masked pixels: {fraction_masked:.4f}")
+        _done = True
+
 
     ###### END PUT CODE HERE #########
     ##################################

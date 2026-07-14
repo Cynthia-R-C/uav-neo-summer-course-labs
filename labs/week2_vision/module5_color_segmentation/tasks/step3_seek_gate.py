@@ -22,7 +22,7 @@ if _d not in _sys.path:
 import neo_lab
 
 # -- Constants --------------------------------------------------------------
-MIN_AREA   = 400
+MIN_AREA   = 1000
 COL_CENTER = 320
 MAX_YAW    = 0.3        # yaw authority for centering
 APPROACH_PITCH = 0.2    # forward speed once centered
@@ -56,6 +56,32 @@ def update(drone):
     # center column vs. COL_CENTER gives a yaw error; only add forward pitch once it is
     # roughly centered (within CENTER_TOL) so you turn toward it before chasing. The box
     # grows as you approach; stop when w reaches TARGET_WIDTH.
+
+    img = drone.camera.get_color_image()
+    largest_gate = neo_lab.largest_green_gate(img, MIN_AREA)
+
+    # Search yaw
+    if largest_gate is None:
+        drone.flight.send_pcmd(0.0, 0.0, SEARCH_YAW, 0.0)
+        return False
+    
+    else:
+        x, y, w, h = cv2.boundingRect(largest_gate)
+        center_x = x + w / 2
+        error_x = (center_x - COL_CENTER) / COL_CENTER  # normalized error
+        yaw_cmd = uav_utils.clamp(error_x * MAX_YAW, -MAX_YAW, MAX_YAW)
+
+        # Only add forward pitch if centered
+        if abs(error_x) < CENTER_TOL / COL_CENTER:
+            pitch_cmd = APPROACH_PITCH
+        else:
+            pitch_cmd = 0.0
+
+        drone.flight.send_pcmd(pitch_cmd, 0.0, yaw_cmd, 0.0)
+
+        if w >= TARGET_WIDTH:
+            print("Gate reached!")
+            _done = True
 
     ###### END PUT CODE HERE #########
     ##################################
