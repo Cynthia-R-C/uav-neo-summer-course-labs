@@ -48,6 +48,17 @@ def update(drone):
     # neo_lab.largest_cyan_gate(image, MIN_AREA) (None when no gate -> return False), take
     # the contour's bounding-box width, and print it. Advance _timer and finish at
     # HOVER_TIME.
+    img = drone.camera.get_color_image()
+    largest_gate = neo_lab.largest_green_gate(img, MIN_AREA)
+    if largest_gate is None:
+        print("No gate found")
+        return False
+    
+    x, y, w, h = cv2.boundingRect(largest_gate)
+    _timer += drone.get_delta_time()
+    if _timer >= HOVER_TIME:
+        print(f"Gate width: {w} px")
+        _done = True
 
     ###### END PUT CODE HERE #########
     ##################################
