@@ -73,9 +73,13 @@ def update(drone):
 
         delta_x = (mean_x - COL_CENTER) / COL_CENTER  # normalize for [-1,1]
         delta_y = (mean_y - ROW_CENTER) / ROW_CENTER  # normalize for [-1,1]
-        drone.flight.send_pcmd(uav_utils.clamp(delta_y, 0, MAX_TILT), uav_utils.clamp(delta_x, 0, MAX_TILT), 0, 0)
+        drone.flight.send_pcmd(uav_utils.clamp(delta_y*MAX_TILT, 0, MAX_TILT), uav_utils.clamp(-delta_x*MAX_TILT, -MAX_TILT, MAX_TILT), 0, 0)
 
-    _hold += drone.get_delta_time()
+    if delta_x < CENTER_TOL / COL_CENTER and delta_y < CENTER_TOL / ROW_CENTER:
+        _hold += drone.get_delta_time()
+    else:
+        _hold = 0.0  # reset timer if not centered
+    
     if _hold >= HOLD_TIME:
         drone.flight.stop()
         _done = True

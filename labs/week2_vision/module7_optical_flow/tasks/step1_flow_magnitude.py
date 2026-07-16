@@ -69,12 +69,46 @@ def update(drone):
     # time. Finish at HOVER_TIME, printing _last_mag. See the README (Key terms) and the
     # OpenCV sparse optical-flow functions.
 
+    drone.flight.send_pcmd(PROBE_PITCH, 0, 0, 0)
+    _timer += drone.get_delta_time()
+    _frame += 1
+
+    if _frame % SKIP == 0:
+        img = drone.camera.get_downward_image()
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        
+        if _prev_pts is None or len(_prev_pts) < MIN_PTS or _prev_gray is None:
+            _prev_pts = cv2.goodFeaturesToTrack(img, mask=None, **FEATURE_PARAMS)
+            _prev_gray = img
+
+        else:
+            next_pts, status, err = cv2.calcOpticalFlowPyrLK(_prev_gray, img, _prev_pts, None, **LK_PARAMS)
+
+            if next_pts is not None and status is not None:
+                feature_found = status.flatten() == 1
+
+                next_pts_fixed = next_pts[feature_found].reshape(-1, 2)
+                old_pts_fixed = _prev_pts[feature_found].reshape(-1, 2)
+
+                if len(next_pts_fixed) > 0:
+                    displac = next_pts_fixed - old_pts_fixed
+                    _last_mag = float(np.mean(np.sqrt(displac[:, 0] ** 2 + displac[:, 1] ** 2)))
+
+            _prev_pts = next_pts
+            _prev_gray = img
+        
+    if _timer >= HOVER_TIME:
+        drone.flight.stop()
+        print(f"Mean sparse flow mag = {_last_mag:.3f}")
+        _done = True
+
     ###### END PUT CODE HERE #########
     ##################################
     return _done
 
 
 if __name__ == "__main__":
+
     _drone = drone_core.create_drone()
     _launcher = neo_lab.Launcher(3.0)
 

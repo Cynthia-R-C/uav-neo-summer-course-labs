@@ -27,7 +27,7 @@ import neo_lab
 # -- Constants --------------------------------------------------------------
 IMAGE_WIDTH = 640
 HFOV_TAN = 1.0         # tan(half of a 90 deg horizontal field of view)
-PROBE_PITCH = 0.12     # forward drift to create measurable flow
+PROBE_PITCH = 0.12    # forward drift to create measurable flow
 RUN_TIME = 6.0
 SKIP = 2               # do the vision work every Nth frame
 MIN_PTS = 20
@@ -42,6 +42,8 @@ _timer = 0.0
 _interval = 0.0        # time accumulated since the last processed frame
 _frame = 0
 _done = False
+est_velocity = (0.0, 0.0)
+true_veloc = (0.0, 0.0)
 
 def reset():
     global _prev_gray, _prev_pts, _timer, _interval, _frame, _done
@@ -54,7 +56,7 @@ def reset():
 
 
 def update(drone):
-    global _prev_gray, _prev_pts, _timer, _interval, _frame, _done
+    global _prev_gray, _prev_pts, _timer, _interval, _frame, _done, est_velocity, true_veloc
     if _done:
         return True
     ##################################
@@ -74,6 +76,53 @@ def update(drone):
     # IMAGE_WIDTH), and divide by _interval (the time between PROCESSED frames, not one dt);
     # then reset _interval. The camera moves opposite the scene flow (sign flip). Finish at
     # RUN_TIME, printing the estimate vs. true velocity. See the README (Key terms).
+
+    drone.flight.send_pcmd(PROBE_PITCH, 0, 0, 0)
+    dt = drone.get_delta_time()
+    _timer += dt
+    _interval += dt
+    _frame += 1
+
+    if _frame % SKIP == 0:
+        img = drone.camera.get_downward_image()
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        
+        if _prev_pts is None or len(_prev_pts) < MIN_PTS or _prev_gray is None:
+            _prev_pts = cv2.goodFeaturesToTrack(img, mask=None, **FEATURE_PARAMS)
+
+        else:
+            next_pts, status, err = cv2.calcOpticalFlowPyrLK(_prev_gray, img, _prev_pts, None, **LK_PARAMS)
+
+            if next_pts is not None and status is not None:
+                # print("next pts is not none and status is not none")
+                feature_found = status.flatten() == 1
+
+                # print(f"next_pts shape = {next_pts.shape}")
+                next_pts_fixed = next_pts[feature_found].reshape(-1, 2)
+
+                # print(f"next_pts_fixed shape = {next_pts_fixed.shape}")
+                old_pts_fixed = _prev_pts[feature_found].reshape(-1, 2)
+
+                if len(next_pts_fixed) > 0:
+                    # print("len next points fixed > 0")
+                    displac = next_pts_fixed - old_pts_fixed
+                    mean_dx = float(displac[:, 0].mean())
+                    mean_dz = float(displac[:, 1].mean())
+                    # meters_per_pixel = 2 · height · tan(½ FOV) / image_width
+                    meters_per_pixel = 2 * neo_lab.height(drone) * HFOV_TAN / IMAGE_WIDTH
+                    est_velocity = (-mean_dx * meters_per_pixel / _interval, -mean_dz * meters_per_pixel / _interval)
+                    vx, vy, vz = drone.physics.get_linear_velocity()
+                    true_veloc = (float(vx), float(vz))
+
+                _prev_pts = next_pts_fixed.reshape(-1, 1, 2)
+
+        _prev_gray = img
+        _interval = 0.0
+
+    if _timer >= RUN_TIME:
+        drone.flight.stop()
+        print(f"Estimated velocity (x,z) = {est_velocity} m/s, true velocity (x,z) = {true_veloc} m/s")
+        _done = True
 
     ###### END PUT CODE HERE #########
     ##################################

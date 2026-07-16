@@ -54,7 +54,7 @@ def update(drone):
     # mask = cv2.inRange(img, LOWER, UPPER)
     # h, s, v = cv2.split(mask)
     # print(f"HSV ranges: H({np.min(h)}, {np.max(h)}), S({np.min(s)}, {np.max(s)}), V({np.min(v)}, {np.max(v)})")
-    largest_gate = neo_lab.largest_cyan_gate(img, MIN_AREA)
+    largest_gate = neo_lab.largest_green_gate(img, MIN_AREA)
     if largest_gate is None:
         print("No gate found")
         return False
