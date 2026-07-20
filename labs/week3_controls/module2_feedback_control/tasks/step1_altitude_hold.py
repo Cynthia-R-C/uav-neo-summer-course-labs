@@ -49,6 +49,19 @@ def update(drone):
     # vertical-velocity command; clamp it to +/-THROTTLE_LIMIT. Finish (set _done) once
     # the height stays within TOL for HOLD_TIME. See the README (Proportional Control).
 
+    altitude = drone.physics.get_altitude()
+
+    error = TARGET_HEIGHT - altitude
+    throttle = max(-THROTTLE_LIMIT, min(THROTTLE_LIMIT, KP * error))
+    # drone.flight.pcmd(pitch, roll, yaw, throttle)  # pitch, roll, throttle, yaw
+    drone.flight.send_pcmd(0, 0, 0, throttle)
+
+    if abs(error) < TOL:
+        _hold += drone.get_delta_time()
+        print(f"Altitude within tolerance: {_hold:.2f}/{HOLD_TIME:.2f} seconds")
+        if _hold >= HOLD_TIME:
+            _done = True
+
     ###### END PUT CODE HERE #########
     ##################################
     return _done

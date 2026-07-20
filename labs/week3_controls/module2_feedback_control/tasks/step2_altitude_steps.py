@@ -51,6 +51,23 @@ def update(drone):
     # This is your Step 1 proportional controller with one change: the target is
     # SETPOINTS[_index] instead of a fixed value, and you advance _index after holding
     # each one. Stop and set _done once _index runs past the end of the list.
+    
+    altitude = drone.physics.get_altitude()
+
+    error = SETPOINTS[_index] - altitude
+    throttle = max(-THROTTLE_LIMIT, min(THROTTLE_LIMIT, KP * error))
+    # drone.flight.pcmd(pitch, roll, yaw, throttle)  # pitch, roll, throttle, yaw
+    drone.flight.send_pcmd(0, 0, 0, throttle)
+
+    if abs(error) < TOL:
+        _hold += drone.get_delta_time()
+        # print(f"Altitude within tolerance: {_hold:.2f}/{HOLD_TIME:.2f} seconds")
+
+        if _hold >= HOLD_TIME:
+            _index += 1
+            _hold = 0.0
+            if _index >= len(SETPOINTS):
+                _done = True
 
     ###### END PUT CODE HERE #########
     ##################################
