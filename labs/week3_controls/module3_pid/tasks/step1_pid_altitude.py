@@ -41,6 +41,12 @@ def pid_control(err, err_int, err_dot, kp, ki, kd):
     ##################################
     #### START PUT CODE HERE #########
     output = 0.0
+
+    P = kp * err
+    I = ki * err_int
+    D = kd * err_dot
+    output = P + I + D
+
     ###### END PUT CODE HERE #########
     ##################################
     return output
@@ -65,6 +71,25 @@ def update(drone):
     # derivative yourself. Throttle is a vertical-velocity command; clamp it to
     # +/-THROTTLE_LIMIT. Finish (set _done) once the height stays within TOL for
     # HOLD_TIME. See the README (Key terms) for the PID law and anti-windup.
+
+    altitude = drone.physics.get_altitude()
+    dt = drone.get_delta_time()
+    err = TARGET_HEIGHT - altitude
+    
+    # update + clamp integral
+    _err_int += err * dt
+    _err_int = max(-INT_CLAMP, min(INT_CLAMP, _err_int))
+
+    # pid update
+    output = pid_control(err, _err_int, (err - _prev_err) / dt, KP, KI, KD)
+    _prev_err = err  # update prev error
+    drone.flight.send_pcmd(0, 0, 0, max(-THROTTLE_LIMIT, min(THROTTLE_LIMIT, output)))
+
+    if abs(err) < TOL:
+        _hold += dt
+        print(f"Altitude within tolerance: {_hold:.2f}/{HOLD_TIME:.2f} seconds")
+        if _hold >= HOLD_TIME:
+            _done = True
 
     ###### END PUT CODE HERE #########
     ##################################

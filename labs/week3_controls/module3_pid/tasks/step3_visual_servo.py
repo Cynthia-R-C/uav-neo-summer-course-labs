@@ -32,7 +32,7 @@ KD = 0.2
 MAX_YAW = 0.25
 SEARCH_YAW = 0.2
 CENTER_TOL = 0.15    # normalized error considered centered
-HOLD_TIME = 1.0
+HOLD_TIME = 3.0
 
 # -- Module-level state -----------------------------------------------------
 _err_int = 0.0
@@ -46,6 +46,12 @@ def pid_control(err, err_int, err_dot, kp, ki, kd):
     ##################################
     #### START PUT CODE HERE #########
     output = 0.0
+
+    P = kp * err
+    I = ki * err_int
+    D = kd * err_dot
+    output = P + I + D
+
     ###### END PUT CODE HERE #########
     ##################################
     return output
@@ -77,6 +83,39 @@ def update(drone):
     # between gates. Turn the gate's horizontal offset from the image center into a
     # normalized error, PID it to a yaw command clamped to MAX_YAW, and sweep at SEARCH_YAW
     # when no gate is in view. See the README (Key terms) and Week 2 for finding gates.
+
+    img = drone.camera.get_color_image()
+    largest_gate = neo_lab.largest_green_gate(img, MIN_AREA)
+    dt = drone.get_delta_time()
+
+    # Search yaw
+    if _target_col is None and largest_gate is None:
+        drone.flight.send_pcmd(0.0, 0.0, SEARCH_YAW, 0.0)
+        return False
+    
+    else:
+        x, y, w, h = cv2.boundingRect(largest_gate)
+        center_x = x + w / 2
+        _target_col = center_x
+        
+        # update errors
+        error_x = (center_x - COL_CENTER) / COL_CENTER  # normalized error
+        _err_int += error_x
+        err_dot = error_x / dt
+
+        # pid + update
+        yaw_cmd = pid_control(error_x, _err_int, err_dot, KP, KI, KD)
+        yaw_cmd = uav_utils.clamp(error_x * MAX_YAW, -MAX_YAW, MAX_YAW)
+
+        drone.flight.send_pcmd(0.2, 0, yaw_cmd, 0)
+
+        # Only add forward pitch if centered
+        if abs(error_x) < CENTER_TOL:
+            _hold += dt
+            if _hold >= HOLD_TIME:
+                drone.flight.stop()
+                print("Hold time reached")
+                _done = True
 
     ###### END PUT CODE HERE #########
     ##################################
